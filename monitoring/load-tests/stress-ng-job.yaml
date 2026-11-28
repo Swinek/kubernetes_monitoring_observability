@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: stress-ng-cpu
+  namespace: demo
+  labels:
+    app: stress-ng
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: stress-ng
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: stress-ng
+          image: alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Instalacja stress-ng i start obciążenia CPU (noisy neighbor simulation)..."
+              apk add --no-cache stress-ng >/dev/null
+              echo "Start stress-ng: 2 wątki CPU przez 90s"
+              stress-ng --cpu 2 --timeout 90s --metrics-brief
+              echo "Zakończono stress-ng."
+          resources:
+            requests:
+              cpu: 200m
+              memory: 64Mi
+            limits:
+              cpu: 1000m
+              memory: 128Mi

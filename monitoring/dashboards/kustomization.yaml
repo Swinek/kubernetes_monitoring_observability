@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "Demo Observability"
+configMapGenerator:
+  - name: dashboard-use-cluster-nodes-pods
+    files:
+      - use-cluster-nodes-pods.json
+  - name: dashboard-red-demo-app
+    files:
+      - red-demo-app.json
+  - name: dashboard-correlation-pod-metrics-logs
+    files:
+      - correlation-pod-metrics-logs.json

@@ -1,0 +1,75 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-app-alerts
+  namespace: monitoring
+  labels:
+    app: demo-app
+    app.kubernetes.io/part-of: demo-monitoring
+spec:
+  groups:
+    - name: demo-app.rules
+      interval: 15s
+      rules:
+        - alert: DemoAppHighCPUUsage
+          expr: |
+            sum by (namespace, pod) (
+              rate(container_cpu_usage_seconds_total{namespace="demo", pod=~"demo-app-.*", container="app"}[1m])
+            ) > 0.12
+          for: 30s
+          labels:
+            severity: warning
+            app: demo-app
+          annotations:
+            summary: "Wysokie użycie CPU przez pod {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} w namespace {{ $labels.namespace }} zużywa {{ printf \"%.3f\" $value }} rdzeni CPU (> 60% requestu 200m) przez ponad 30s."
+
+        - alert: DemoAppPodRestarting
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="demo", pod=~"demo-app-.*"}[10m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+            app: demo-app
+          annotations:
+            summary: "Wykryto restart poda {{ $labels.pod }}"
+            description: "Kontener {{ $labels.container }} w podzie {{ $labels.pod }} (namespace {{ $labels.namespace }}) zrestartował się w ciągu ostatnich 10 minut."
+
+        - alert: DemoAppHigh5xxErrorRate
+          expr: |
+            (
+              sum by (namespace, pod) (
+                rate(http_requests_total{namespace="demo", job="demo-app", status=~"5..|5xx"}[1m])
+              )
+              /
+              clamp_min(
+                sum by (namespace, pod) (
+                  rate(http_requests_total{namespace="demo", job="demo-app"}[1m])
+                ),
+                0.001
+              )
+            ) > 0.05
+            and
+            sum by (namespace, pod) (
+              rate(http_requests_total{namespace="demo", job="demo-app", status=~"5..|5xx"}[1m])
+            ) > 0.05
+          for: 30s
+          labels:
+            severity: critical
+            app: demo-app
+          annotations:
+            summary: "Wysoki odsetek błędów HTTP 5xx na podzie {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} zwraca ponad 5% błędów HTTP 5xx (bieżący udział błędów: {{ $value | humanizePercentage }})."
+
+        - alert: DemoAppHighMemoryUsage
+          expr: |
+            sum by (namespace, pod) (
+              container_memory_working_set_bytes{namespace="demo", pod=~"demo-app-.*", container="app"}
+            ) > 268435456
+          for: 30s
+          labels:
+            severity: warning
+            app: demo-app
+          annotations:
+            summary: "Wysokie zużycie pamięci przez pod {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} zużywa ponad 256 MiB pamięci RAM (limit to 512 MiB)."
